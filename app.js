@@ -44,13 +44,11 @@ const scanAgainButton = document.getElementById("scan-again");
 // ============================================================
 
 const VERIFIER_CONFIG = {
-    // Put verification_key.json beside this app.js.
     verificationKeyUrl: "./verification_key.json",
 
-    // Fallback if your deployment keeps it inside /zkp/.
-    verificationKeyFallbackUrl: "./zkp/verification_key.json",
+    verificationKeyFallbackUrl:
+        "./zkp/verification_key.json",
 
-    // Your supplied verification key declares nPublic = 24.
     expectedPublicSignals: 24,
 
     qrVersion: 1
@@ -74,7 +72,13 @@ let verificationKeyPromise = null;
 // ============================================================
 
 function escapeHTML(value) {
-    if (value === null || value === undefined) return "";
+
+    if (
+        value === null ||
+        value === undefined
+    ) {
+        return "";
+    }
 
     return String(value)
         .replace(/&/g, "&amp;")
@@ -86,23 +90,35 @@ function escapeHTML(value) {
 
 
 // ============================================================
-// LOAD SNARKJS
+// LOAD EXTERNAL SCRIPT
 // ============================================================
 
 function loadScript(url) {
+
     return new Promise((resolve, reject) => {
-        const script = document.createElement("script");
+
+        const script =
+            document.createElement("script");
 
         script.src = url;
 
         script.onload = () => resolve();
 
         script.onerror = () =>
-            reject(new Error(`Could not load ${url}`));
+            reject(
+                new Error(
+                    `Could not load ${url}`
+                )
+            );
 
         document.head.appendChild(script);
     });
 }
+
+
+// ============================================================
+// LOAD SNARKJS
+// ============================================================
 
 async function loadSnarkJS() {
 
@@ -115,8 +131,11 @@ async function loadSnarkJS() {
         snarkjsPromise = (async () => {
 
             const urls = [
+
                 "./snarkjs.min.js",
-                "https://cdn.jsdelivr.net/npm/snarkjs@0.7.5/build/snarkjs.min.js"
+
+                "https://cdn.jsdelivr.net/npm/" +
+                "snarkjs@0.7.5/build/snarkjs.min.js"
             ];
 
             for (const url of urls) {
@@ -163,7 +182,7 @@ async function loadVerificationKey() {
 
         verificationKeyPromise = (async () => {
 
-            let response;
+            let response = null;
 
             try {
 
@@ -183,11 +202,15 @@ async function loadVerificationKey() {
                 );
             }
 
-            if (!response || !response.ok) {
+            if (
+                !response ||
+                !response.ok
+            ) {
 
                 response =
                     await fetch(
-                        VERIFIER_CONFIG.verificationKeyFallbackUrl,
+                        VERIFIER_CONFIG
+                            .verificationKeyFallbackUrl,
                         {
                             cache: "no-store"
                         }
@@ -197,7 +220,8 @@ async function loadVerificationKey() {
             if (!response.ok) {
 
                 throw new Error(
-                    `Could not load verification_key.json (HTTP ${response.status}).`
+                    `Could not load verification_key.json ` +
+                    `(HTTP ${response.status}).`
                 );
             }
 
@@ -207,6 +231,7 @@ async function loadVerificationKey() {
             validateVerificationKey(vkey);
 
             return vkey;
+
         })();
 
         verificationKeyPromise.catch(() => {
@@ -224,19 +249,25 @@ async function loadVerificationKey() {
 
 function validateVerificationKey(vkey) {
 
-    if (!vkey || typeof vkey !== "object") {
+    if (
+        !vkey ||
+        typeof vkey !== "object"
+    ) {
+
         throw new Error(
             "verification_key.json is not a valid JSON object."
         );
     }
 
     if (vkey.protocol !== "groth16") {
+
         throw new Error(
             `Unsupported proving protocol: ${vkey.protocol}`
         );
     }
 
     if (vkey.curve !== "bn128") {
+
         throw new Error(
             `Unsupported curve: ${vkey.curve}`
         );
@@ -246,9 +277,11 @@ function validateVerificationKey(vkey) {
         Number(vkey.nPublic) !==
         VERIFIER_CONFIG.expectedPublicSignals
     ) {
+
         throw new Error(
-            `Verification key expects ${vkey.nPublic} public signals, ` +
-            `but this verifier expects ${VERIFIER_CONFIG.expectedPublicSignals}.`
+            `Verification key expects ${vkey.nPublic} ` +
+            `public signals, but this verifier expects ` +
+            `${VERIFIER_CONFIG.expectedPublicSignals}.`
         );
     }
 
@@ -257,6 +290,7 @@ function validateVerificationKey(vkey) {
         vkey.IC.length !==
             VERIFIER_CONFIG.expectedPublicSignals + 1
     ) {
+
         throw new Error(
             "verification_key.json has an unexpected IC length."
         );
@@ -268,50 +302,70 @@ function validateVerificationKey(vkey) {
 // QR PAYLOAD FORMAT
 // ============================================================
 //
-// Compact QR format generated by the prover:
+// Compact QR format:
 //
 // {
 //   "v": 1,
 //   "s": schemeId,
 //   "a": [proof.pi_a.x, proof.pi_a.y],
-//   "b": [proof.pi_b[0], proof.pi_b[1]],
+//   "b": [
+//       [proof.pi_b.x1, proof.pi_b.y1],
+//       [proof.pi_b.x2, proof.pi_b.y2]
+//   ],
 //   "c": [proof.pi_c.x, proof.pi_c.y],
 //   "n": [24 public signals]
 // }
 //
-// The constant Groth16 coordinates are restored here:
+// The compact b representation is converted to the
+// snarkJS Groth16 representation:
 //
-//   pi_a = [x, y, "1"]
-//   pi_b = [[x, y], ["1", "0"]]
-//   pi_c = [x, y, "1"]
+//   pi_b = [
+//       [x1, x2],
+//       [y1, y2],
+//       ["1", "0"]
+//   ]
 //
 // ============================================================
 
 function parseQRJSON(decodedText) {
 
     if (!decodedText) {
-        throw new Error("QR code is empty.");
+
+        throw new Error(
+            "QR code is empty."
+        );
     }
 
     let data;
 
     try {
-        data = JSON.parse(decodedText.trim());
+
+        data =
+            JSON.parse(
+                decodedText.trim()
+            );
+
     } catch (error) {
+
         throw new Error(
             "The QR code does not contain valid JSON."
         );
     }
 
-    if (!data || typeof data !== "object") {
+    if (
+        !data ||
+        typeof data !== "object"
+    ) {
+
         throw new Error(
             "QR JSON must be an object."
         );
     }
 
-    // --------------------------------------------------------
-    // Preferred compact ShieldVerify format
-    // --------------------------------------------------------
+
+    // ========================================================
+    // COMPACT SHIELD VERIFY FORMAT
+    // ========================================================
 
     if (
         data.v === VERIFIER_CONFIG.qrVersion &&
@@ -322,52 +376,99 @@ function parseQRJSON(decodedText) {
     ) {
 
         if (data.a.length !== 2) {
-            throw new Error("Invalid proof field: a.");
+
+            throw new Error(
+                "Invalid proof field: a."
+            );
         }
+
 
         if (
             data.b.length !== 2 ||
             !Array.isArray(data.b[0]) ||
-            !Array.isArray(data.b[1])
+            !Array.isArray(data.b[1]) ||
+            data.b[0].length !== 2 ||
+            data.b[1].length !== 2
         ) {
-            throw new Error("Invalid proof field: b.");
+
+            throw new Error(
+                "Invalid proof field: b."
+            );
         }
 
+
         if (data.c.length !== 2) {
-            throw new Error("Invalid proof field: c.");
+
+            throw new Error(
+                "Invalid proof field: c."
+            );
         }
+
 
         if (
             data.n.length !==
             VERIFIER_CONFIG.expectedPublicSignals
         ) {
+
             throw new Error(
-                `QR contains ${data.n.length} public signals; ` +
-                `expected ${VERIFIER_CONFIG.expectedPublicSignals}.`
+                `QR contains ${data.n.length} ` +
+                `public signals; expected ` +
+                `${VERIFIER_CONFIG.expectedPublicSignals}.`
             );
         }
 
+
         return {
+
             schemeId: data.s,
-            publicSignals: data.n.map(String),
+
+            publicSignals:
+                data.n.map(String),
+
             proof: {
+
                 pi_a: [
                     String(data.a[0]),
                     String(data.a[1]),
                     "1"
                 ],
 
+
+                // IMPORTANT:
+                //
+                // Compact QR:
+                //
+                // b = [
+                //     [x1, y1],
+                //     [x2, y2]
+                // ]
+                //
+                // snarkJS:
+                //
+                // pi_b = [
+                //     [x1, x2],
+                //     [y1, y2],
+                //     ["1", "0"]
+                // ]
+
                 pi_b: [
+
                     [
                         String(data.b[0][0]),
-                        String(data.b[0][1])
+                        String(data.b[1][0])
                     ],
 
                     [
-                        String(data.b[1][0]),
+                        String(data.b[0][1]),
                         String(data.b[1][1])
+                    ],
+
+                    [
+                        "1",
+                        "0"
                     ]
                 ],
+
 
                 pi_c: [
                     String(data.c[0]),
@@ -375,23 +476,18 @@ function parseQRJSON(decodedText) {
                     "1"
                 ],
 
+
                 protocol: "groth16",
+
                 curve: "bn128"
             }
         };
     }
 
 
-    // --------------------------------------------------------
-    // Optional full snarkJS JSON format
-    //
-    // This makes the verifier useful if the QR contains:
-    //
-    // {
-    //   "proof": {...},
-    //   "publicSignals": [...]
-    // }
-    // --------------------------------------------------------
+    // ========================================================
+    // OPTIONAL FULL SNARKJS JSON FORMAT
+    // ========================================================
 
     if (
         data.proof &&
@@ -402,13 +498,17 @@ function parseQRJSON(decodedText) {
             data.publicSignals.length !==
             VERIFIER_CONFIG.expectedPublicSignals
         ) {
+
             throw new Error(
-                `QR contains ${data.publicSignals.length} public signals; ` +
-                `expected ${VERIFIER_CONFIG.expectedPublicSignals}.`
+                `QR contains ${data.publicSignals.length} ` +
+                `public signals; expected ` +
+                `${VERIFIER_CONFIG.expectedPublicSignals}.`
             );
         }
 
+
         return {
+
             schemeId:
                 data.schemeId ??
                 data.s ??
@@ -437,31 +537,44 @@ function parseQRJSON(decodedText) {
 
 function normaliseFullProof(proof) {
 
-    if (!proof || typeof proof !== "object") {
-        throw new Error("Proof object is missing.");
+    if (
+        !proof ||
+        typeof proof !== "object"
+    ) {
+
+        throw new Error(
+            "Proof object is missing."
+        );
     }
+
 
     if (
         !Array.isArray(proof.pi_a) ||
         !Array.isArray(proof.pi_b) ||
         !Array.isArray(proof.pi_c)
     ) {
+
         throw new Error(
             "Proof must contain pi_a, pi_b and pi_c."
         );
     }
 
+
     return {
-        pi_a: proof.pi_a.map(String),
 
-        pi_b: proof.pi_b.map(
-            point =>
-                Array.isArray(point)
-                    ? point.map(String)
-                    : String(point)
-        ),
+        pi_a:
+            proof.pi_a.map(String),
 
-        pi_c: proof.pi_c.map(String),
+        pi_b:
+            proof.pi_b.map(
+                point =>
+                    Array.isArray(point)
+                        ? point.map(String)
+                        : String(point)
+            ),
+
+        pi_c:
+            proof.pi_c.map(String),
 
         protocol:
             proof.protocol ||
@@ -496,15 +609,9 @@ async function verifyQRJSON(decodedText) {
         await loadVerificationKey();
 
 
-    // --------------------------------------------------------
-    // The ONLY cryptographic trust decision happens here.
-    //
-    // snarkJS checks the Groth16 proof against:
-    //   1. the trusted verification key
-    //   2. the public signals extracted from the QR
-    //
-    // No database lookup is involved.
-    // --------------------------------------------------------
+    // ========================================================
+    // CRYPTOGRAPHIC VERIFICATION
+    // ========================================================
 
     const verified =
         await snarkjs.groth16.verify(
@@ -515,40 +622,55 @@ async function verifyQRJSON(decodedText) {
 
 
     return {
-        verified: verified === true,
+
+        verified:
+            verified === true,
+
         schemeId,
+
         publicSignals,
+
         proof
     };
 }
 
 
 // ============================================================
-// DISPLAY RESULT
+// DISPLAY VERIFIED
 // ============================================================
 
 function displayVerified(result) {
 
-    resultSection.classList.remove("hidden");
-    scanAgainButton.classList.remove("hidden");
+    resultSection.classList.remove(
+        "hidden"
+    );
+
+    scanAgainButton.classList.remove(
+        "hidden"
+    );
+
 
     scannerStatus.textContent =
         "Proof verified successfully.";
 
+
     const signalRows =
         result.publicSignals
             .map(
-                (value, index) =>
-                    `
+                (value, index) => `
                     <div class="event event-active">
-                        Signal ${index + 1}: ${escapeHTML(value)}
+                        Signal ${index + 1}:
+                        ${escapeHTML(value)}
                     </div>
-                    `
+                `
             )
             .join("");
 
+
     resultCard.innerHTML = `
+
         <div class="verification-result verified">
+
             <h2>✓ VERIFIED</h2>
 
             <p>
@@ -562,7 +684,9 @@ function displayVerified(result) {
                     ? `
                         <p>
                             <strong>Scheme ID:</strong>
-                            ${escapeHTML(result.schemeId)}
+                            ${escapeHTML(
+                                result.schemeId
+                            )}
                         </p>
                     `
                     : ""
@@ -571,28 +695,46 @@ function displayVerified(result) {
             <h3>Public Signals</h3>
 
             <div class="event-list">
+
                 ${signalRows}
+
             </div>
 
             <p class="quiz-hint">
+
                 Verification was performed locally.
                 No participant database lookup was used.
+
             </p>
+
         </div>
     `;
 }
 
 
+// ============================================================
+// DISPLAY INVALID
+// ============================================================
+
 function displayInvalid(reason) {
 
-    resultSection.classList.remove("hidden");
-    scanAgainButton.classList.remove("hidden");
+    resultSection.classList.remove(
+        "hidden"
+    );
+
+    scanAgainButton.classList.remove(
+        "hidden"
+    );
+
 
     scannerStatus.textContent =
         "Verification failed.";
 
+
     resultCard.innerHTML = `
+
         <div class="verification-result invalid">
+
             <h2>✕ INVALID</h2>
 
             <p>
@@ -600,9 +742,13 @@ function displayInvalid(reason) {
             </p>
 
             <p>
+
                 <strong>Reason:</strong>
+
                 ${escapeHTML(reason)}
+
             </p>
+
         </div>
     `;
 }
@@ -615,13 +761,17 @@ function displayInvalid(reason) {
 async function stopScanner() {
 
     if (!scanner) {
+
         scanning = false;
+
         return;
     }
+
 
     try {
 
         if (scanning) {
+
             await scanner.stop();
         }
 
@@ -633,8 +783,11 @@ async function stopScanner() {
         );
     }
 
+
     try {
+
         scanner.clear();
+
     } catch (error) {
 
         console.warn(
@@ -643,19 +796,66 @@ async function stopScanner() {
         );
     }
 
+
     scanner = null;
+
     scanning = false;
 }
 
 
+// ============================================================
+// QR BOX
+// ============================================================
+
+function makeQRBox(
+    viewfinderWidth,
+    viewfinderHeight
+) {
+
+    const minEdge =
+        Math.min(
+            viewfinderWidth,
+            viewfinderHeight
+        );
+
+
+    // Large scanning area for dense QR.
+    const boxSize =
+        Math.floor(
+            minEdge * 0.90
+        );
+
+
+    return {
+
+        width: boxSize,
+
+        height: boxSize
+    };
+}
+
+
+// ============================================================
+// START CAMERA SCANNER
+// ============================================================
+
 async function startScanner() {
 
     scanning = false;
+
     processingScan = false;
 
-    resultSection.classList.add("hidden");
-    scanAgainButton.classList.add("hidden");
+
+    resultSection.classList.add(
+        "hidden"
+    );
+
+    scanAgainButton.classList.add(
+        "hidden"
+    );
+
     resultCard.innerHTML = "";
+
 
     scannerStatus.textContent =
         "Requesting camera permission...";
@@ -667,8 +867,10 @@ async function startScanner() {
     ) {
 
         scannerStatus.innerHTML =
+
             "<strong>Camera API is unavailable.</strong><br><br>" +
-            "Use a modern browser over HTTPS.";
+
+            "Use HTTPS or localhost in a modern browser.";
 
         return;
     }
@@ -677,16 +879,40 @@ async function startScanner() {
     await stopScanner();
 
 
-    let temporaryStream = null;
-
+    // ========================================================
+    // REQUEST CAMERA PERMISSION
+    // ========================================================
 
     try {
 
-        temporaryStream =
+        const stream =
             await navigator.mediaDevices.getUserMedia({
-                video: true,
+
+                video: {
+
+                    facingMode: {
+                        ideal: "environment"
+                    },
+
+                    width: {
+                        ideal: 1920
+                    },
+
+                    height: {
+                        ideal: 1080
+                    }
+                },
+
                 audio: false
             });
+
+
+        stream
+            .getTracks()
+            .forEach(
+                track => track.stop()
+            );
+
 
     } catch (error) {
 
@@ -695,28 +921,31 @@ async function startScanner() {
             error
         );
 
+
         scannerStatus.innerHTML =
-            "<strong>Camera permission was denied.</strong><br><br>" +
-            "Allow camera access for this website and reload.";
+
+            "<strong>Camera permission was denied.</strong>" +
+            "<br><br>" +
+
+            "Allow camera access and reload the page.";
 
         return;
     }
 
 
-    if (temporaryStream) {
-
-        temporaryStream
-            .getTracks()
-            .forEach(
-                track => track.stop()
-            );
-    }
-
+    // ========================================================
+    // CREATE HTML5 QR SCANNER
+    // ========================================================
 
     try {
 
         scanner =
-            new Html5Qrcode("reader");
+            new Html5Qrcode(
+                "reader",
+                {
+                    verbose: false
+                }
+            );
 
     } catch (error) {
 
@@ -725,125 +954,257 @@ async function startScanner() {
             error
         );
 
+
         scannerStatus.innerHTML =
+
             "<strong>QR scanner could not be initialized.</strong>";
 
         return;
     }
 
 
-    let cameras;
+    const config = {
 
-
-    try {
-
-        cameras =
-            await Html5Qrcode.getCameras();
-
-    } catch (error) {
-
-        console.error(
-            "Unable to enumerate cameras:",
-            error
-        );
-
-        scannerStatus.innerHTML =
-            "<strong>Could not detect your camera.</strong><br><br>" +
-            "Check your browser camera permissions.";
-
-        return;
-    }
-
-
-    if (!cameras || cameras.length === 0) {
-
-        scannerStatus.innerHTML =
-            "<strong>No camera detected.</strong><br><br>" +
-            "Make sure your device has a working camera.";
-
-        return;
-    }
-
-
-    let selectedCamera =
-        cameras[0];
-
-
-    const rearCamera =
-        cameras.find(
-            camera =>
-                /back|rear|environment/i
-                    .test(
-                        camera.label || ""
-                    )
-        );
-
-
-    if (rearCamera) {
-        selectedCamera = rearCamera;
-    }
-
-
-    const scannerConfig = {
-
-        fps: 10,
+        fps: 8,
 
         qrbox:
-            function (
-                viewfinderWidth,
-                viewfinderHeight
-            ) {
+            makeQRBox,
 
-                const minEdge =
-                    Math.min(
-                        viewfinderWidth,
-                        viewfinderHeight
-                    );
+        aspectRatio: 1.0,
 
-                const boxSize =
-                    Math.floor(
-                        minEdge * 0.70
-                    );
+        disableFlip: true,
 
-                return {
-                    width: boxSize,
-                    height: boxSize
-                };
-            },
+        formatsToSupport: [
 
-        aspectRatio: 1.0
+            Html5QrcodeSupportedFormats.QR_CODE
+
+        ],
+
+        experimentalFeatures: {
+
+            useBarCodeDetectorIfSupported:
+                true
+        }
     };
 
+
+    // ========================================================
+    // TRY ENVIRONMENT CAMERA
+    // ========================================================
 
     try {
 
         await scanner.start(
-            selectedCamera.id,
-            scannerConfig,
+
+            {
+                facingMode:
+                    "environment"
+            },
+
+            config,
+
             onScanSuccess,
+
             onScanError
         );
 
+
         scanning = true;
 
+
         scannerStatus.textContent =
-            "Camera ready — scan the ZK proof QR code.";
+
+            "Camera ready — hold the complete QR inside the square.";
+
+
+    } catch (error) {
+
+        console.warn(
+
+            "Environment camera failed; " +
+            "trying enumerated camera.",
+
+            error
+        );
+
+
+        // ====================================================
+        // FALLBACK TO ENUMERATED CAMERA
+        // ====================================================
+
+        try {
+
+            const cameras =
+                await Html5Qrcode.getCameras();
+
+
+            if (
+                !cameras ||
+                cameras.length === 0
+            ) {
+
+                throw new Error(
+                    "No camera was detected."
+                );
+            }
+
+
+            const rear =
+                cameras.find(
+                    camera =>
+                        /back|rear|environment/i.test(
+                            camera.label || ""
+                        )
+                );
+
+
+            const cameraId =
+                (
+                    rear ||
+                    cameras[
+                        cameras.length - 1
+                    ]
+                ).id;
+
+
+            await scanner.start(
+
+                cameraId,
+
+                config,
+
+                onScanSuccess,
+
+                onScanError
+            );
+
+
+            scanning = true;
+
+
+            scannerStatus.textContent =
+
+                "Camera ready — hold the complete QR inside the square.";
+
+
+        } catch (fallbackError) {
+
+            console.error(
+
+                "Camera start error:",
+                fallbackError
+            );
+
+
+            await stopScanner();
+
+
+            scannerStatus.innerHTML =
+
+                "<strong>Camera could not be started.</strong>" +
+                "<br><br>" +
+
+                escapeHTML(
+                    fallbackError.message ||
+                    "Unknown camera error."
+                );
+        }
+    }
+}
+
+
+// ============================================================
+// IMAGE FILE SCANNING
+// ============================================================
+
+async function scanQRImageFile(file) {
+
+    if (!file) {
+        return;
+    }
+
+
+    processingScan = true;
+
+
+    await stopScanner();
+
+
+    scannerStatus.textContent =
+        "Reading QR image...";
+
+
+    try {
+
+        const imageScanner =
+            new Html5Qrcode(
+                "reader"
+            );
+
+
+        const decodedText =
+            await imageScanner.scanFile(
+                file,
+                true
+            );
+
+
+        try {
+
+            imageScanner.clear();
+
+        } catch (_) {}
+
+
+        scannerStatus.textContent =
+            "QR detected — verifying Groth16 proof...";
+
+
+        const result =
+            await verifyQRJSON(
+                decodedText
+            );
+
+
+        if (result.verified) {
+
+            displayVerified(
+                result
+            );
+
+        } else {
+
+            displayInvalid(
+
+                "The Groth16 proof is not valid " +
+                "against the supplied verification key."
+
+            );
+        }
+
 
     } catch (error) {
 
         console.error(
-            "Camera start error:",
+            "QR image scan error:",
             error
         );
 
-        scanning = false;
 
-        scannerStatus.innerHTML =
-            "<strong>Camera could not be started.</strong><br><br>" +
-            escapeHTML(
+        displayInvalid(
+
+            "The QR image could not be decoded. " +
+
+            (
                 error.message ||
-                "Unknown camera error."
-            );
+                ""
+            )
+        );
+
+
+    } finally {
+
+        processingScan = false;
     }
 }
 
@@ -861,10 +1222,13 @@ async function onScanSuccess(
         processingScan ||
         !scanning
     ) {
+
         return;
     }
 
+
     processingScan = true;
+
 
     console.log(
         "ZK PROOF QR DETECTED:",
@@ -876,14 +1240,10 @@ async function onScanSuccess(
 
 
     scannerStatus.textContent =
-        "QR detected — extracting proof JSON...";
+        "QR detected — verifying Groth16 proof...";
 
 
     try {
-
-        scannerStatus.textContent =
-            "QR detected — verifying Groth16 proof...";
-
 
         const result =
             await verifyQRJSON(
@@ -893,14 +1253,20 @@ async function onScanSuccess(
 
         if (result.verified) {
 
-            displayVerified(result);
+            displayVerified(
+                result
+            );
 
         } else {
 
             displayInvalid(
-                "The Groth16 proof is not valid against the supplied verification key."
+
+                "The Groth16 proof is not valid " +
+                "against the supplied verification key."
+
             );
         }
+
 
     } catch (error) {
 
@@ -909,17 +1275,32 @@ async function onScanSuccess(
             error
         );
 
+
         displayInvalid(
+
             error.message ||
             "The QR proof could not be verified."
+
         );
     }
 }
 
 
-function onScanError(errorMessage) {
-    // html5-qrcode calls this continuously while scanning.
-    // Do not display transient decode failures.
+// ============================================================
+// QR SCAN ERROR
+// ============================================================
+//
+// html5-qrcode calls this repeatedly while it is searching.
+// These errors are intentionally not displayed to the user.
+//
+// ============================================================
+
+function onScanError(
+    errorMessage
+) {
+
+    // Expected continuously while scanning.
+
 }
 
 
@@ -940,31 +1321,41 @@ if (scanAgainButton) {
 // INITIALISE
 // ============================================================
 
-startScanner().catch(error => {
+startScanner()
+    .catch(
+        error => {
 
-    console.error(
-        "Initial scanner startup failed:",
-        error
+            console.error(
+                "Initial scanner startup failed:",
+                error
+            );
+
+
+            scannerStatus.textContent =
+
+                error.message ||
+                "Unable to start scanner.";
+        }
     );
-
-    scannerStatus.textContent =
-        error.message ||
-        "Unable to start scanner.";
-});
 
 
 // ============================================================
 // OPTIONAL GLOBAL API
 // ============================================================
 //
-// Useful for testing from the browser console:
+// Useful from browser console:
 //
-//   ShieldVerifyVerifier.verifyQRJSON(qrText)
+// ShieldVerifyVerifier.verifyQRJSON(qrText)
 //
 // ============================================================
 
 window.ShieldVerifyVerifier = {
+
     verifyQRJSON,
+
     parseQRJSON,
-    loadVerificationKey
+
+    loadVerificationKey,
+
+    scanQRImageFile
 };
