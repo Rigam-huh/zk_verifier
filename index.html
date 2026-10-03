@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Shield ZK Proof Verifier</title>
+
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #f5f5f5;
+            color: #111;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: min(720px, 100%);
+            background: #fff;
+            border-radius: 18px;
+            padding: 22px;
+            box-shadow: 0 8px 30px rgba(0,0,0,.08);
+        }
+
+        h1 { margin-top: 0; }
+
+        #reader {
+            width: 100%;
+            max-width: 680px;
+            margin: 18px auto;
+            overflow: hidden;
+            border-radius: 14px;
+            background: #111;
+            min-height: 280px;
+        }
+
+        #scanner-status {
+            text-align: center;
+            min-height: 28px;
+            margin: 14px 0;
+        }
+
+        .controls {
+            display: grid;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button, .file-label {
+            display: block;
+            width: 100%;
+            padding: 13px 18px;
+            border: 0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            text-align: center;
+            background: #111;
+            color: #fff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .help {
+            padding: 14px;
+            background: #f2f2f2;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .hidden { display: none !important; }
+
+        .verification-result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 14px;
+        }
+
+        .verified {
+            background: #e9f8ee;
+            border: 1px solid #76c893;
+        }
+
+        .invalid {
+            background: #fff0f0;
+            border: 1px solid #e57373;
+        }
+
+        .event {
+            padding: 8px 10px;
+            margin: 4px 0;
+            background: rgba(0,0,0,.04);
+            border-radius: 8px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+
+<body>
+
+<main class="container">
+
+    <h1>Shield ZK Proof Verifier</h1>
+
+    <p>
+        Scan the Groth16 proof QR. The QR contains the proof JSON
+        and 24 public signals.
+    </p>
+
+    <div id="reader"></div>
+
+    <div id="scanner-status">
+        Initialising scanner...
+    </div>
+
+    <div class="controls">
+
+        <button id="scan-again">
+            Start Camera Scanner
+        </button>
+
+        <label class="file-label" for="qr-image">
+            Scan QR From Image
+        </label>
+
+        <input
+            id="qr-image"
+            type="file"
+            accept="image/*"
+            capture="environment"
+        >
+
+    </div>
+
+    <div class="help">
+        <strong>For this dense QR:</strong>
+        keep the entire QR visible, hold the phone steady,
+        avoid glare, and keep the QR roughly 15–30 cm from
+        the camera. If the camera has trouble, use
+        <strong>Scan QR From Image</strong>.
+    </div>
+
+    <section id="result-section" class="hidden">
+        <div id="result-card"></div>
+    </section>
+
+</main>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script type="module" src="./app.js"></script>
+
+<script>
+    document
+        .getElementById("qr-image")
+        .addEventListener("change", function () {
+
+            const file = this.files && this.files[0];
+
+            if (
+                file &&
+                window.ShieldVerifyVerifier &&
+                window.ShieldVerifyVerifier.scanQRImageFile
+            ) {
+                window.ShieldVerifyVerifier.scanQRImageFile(file);
+            }
+        });
+</script>
+
+</body>
+</html>
